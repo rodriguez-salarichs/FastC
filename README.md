@@ -15,9 +15,9 @@ FastC aims to provide a simple way to do some quality control checks on treated 
 
 The main functions of FastC are
 
-    Import of data from Fasta file
-    Summary graphs and tables to quickly assess your data
-    Output PDF report
+    1) Import of data from Fasta file
+    2) Summary graphs and tables to quickly assess your data
+    3) Output PDF report
 
 
 Operating system
