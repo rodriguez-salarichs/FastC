@@ -41,7 +41,7 @@ Installation
         git clone https://github.com/rodriguez-salarichs/FastC
         tar -xzvf FastC.tar.gz
         cd FastC
-        sudo ./INSTALL  [ By default, the prefix for files it installs to /usr/local and binary at /usr/bin]
+        sudo ./INSTALL  [ By default, FastC and its binary are installed at /usr/local and /usr/bin respectively ]
         
         
         sudo ./INSTALL [Options]
