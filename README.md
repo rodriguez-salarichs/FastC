@@ -38,7 +38,8 @@ You need to have gnuplot and to update glibc to 2.14
 
 Installation
 ------------
-        git clone https://github.com/rodriguez-salarichs/FastC
+        sudo git clone https://github.com/rodriguez-salarichs/FastC
+        cd FastC
         tar -xzvf FastC.tar.gz
         cd FastC
         sudo ./INSTALL  [ By default, FastC and its binary are installed at /usr/local and /usr/bin respectively ]
