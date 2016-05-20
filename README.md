@@ -33,7 +33,7 @@ Kernel
 Pre-installation
 ----------------
 
-You need to have gnuplot and to update glibc to 2.14
+You need to have gnuplot, imagemagick and to update glibc to 2.14
 
 
 Installation
