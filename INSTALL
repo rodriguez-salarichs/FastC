@@ -1,0 +1,233 @@
+#!/bin/bash
+
+
+###########################################################################################
+# Define some colors:
+ gray='\e[0;30m'
+ GRAY='\e[47;30m'
+ red='\e[0;31m'
+ RED='\e[47;31m'
+ green='\e[0;32m'
+ GREEN='\e[40;32m'
+ yellow='\e[0;33m'
+ YELLOW='\e[40;33m'
+ blue='\e[0;34m'
+ BLUE='\e[47;34m'
+ magenta='\e[0;35m'
+ MAGENTA='\e[40;35m'
+ cyan='\e[0;36m'
+ CYAN='\e[40;36m'
+ NC='\e[0m'   # No Color
+ HEAD='\033[1m'
+ TAIL='\033[0m'
+
+
+
+#################################
+
+if [ -z `uname -s|grep "[Ll]inux"` ];then
+echo -e "\n" $red""$HEAD"Program runs on Linux Kernel"$TAIL"\n"
+exit 1
+fi
+#################################
+
+
+read -d '' String <<"EOF"
+Usage: 
+	sudo ./INSTALL  [ By default, the prefix for files it installs to /usr/local ]
+	sudo ./INSTALL [Options]
+
+	OPTIONS:
+
+	 --prefix=/DESTINATION/DIRECTORY
+
+	 --bindir=DIR           user executable [/usr/bin]
+	 --help			Print this help file and exit
+
+EOF
+
+
+
+
+
+
+if [ -z $1 ]; then
+ install_dir="/usr/local"
+ install_xdir="/usr/bin"
+elif [ $# -eq 1 ];then
+ if [ `echo $1 | grep "\--help"` ];then
+   echo -e "\n${String}\n"
+   exit 0
+ fi
+ if [ -z `echo $1 | grep "\--prefix="` ];then
+  if [ -z `echo $1 | grep "\--bindir="` ];then
+   echo -e "\n${String}\n"
+   exit 1
+  else
+   install_xdir=`echo $1|awk '{sub("--bindir=","",$0); print $0}'`
+   echo -e "\nSoft link of FastC will be installed in "$install_xdir"\n"
+   install_dir="/usr/local"
+  fi
+ else
+  install_dir=`echo $1|awk '{sub("--prefix=","",$0); print $0}'`
+  echo -e "\nFastC will be installed in "$install_dir"/FastC\n"
+  install_xdir="/usr/bin"
+ fi
+elif [ $# -eq 2 ];then
+ if [ -z `echo $1" "$2 | grep "\--prefix="` ];then
+   echo -e "\n${String}\n"
+   exit 1
+ fi
+
+ if [ -z `echo $1" "$2 | grep "\--bindir="` ];then
+   echo -e "\n${String}\n"
+   exit 1
+ fi
+
+
+ if [ -z `echo $1 | grep "\--prefix="` ];then
+    install_dir=`echo $2|awk '{sub("--prefix=","",$0); print $0}'`
+    install_xdir=`echo $1|awk '{sub("--bindir=","",$0); print $0}'`
+ else
+    install_dir=`echo $1|awk '{sub("--prefix=","",$0); print $0}'`
+    install_xdir=`echo $2|awk '{sub("--bindir=","",$0); print $0}'`
+ fi 
+ echo -e "\nFastC will be installed in "$install_dir"/FastC\n"
+ echo -e "\nSoft link of FastC will be installed in "$install_xdir"\n"
+fi
+
+
+
+######################################
+
+mkdir -v $install_dir"/FastC" &> /dev/null
+
+
+var_exit=`echo $?`
+
+if [ $var_exit -ne 0 ];then
+ echo -e "\n" $red""$HEAD"STOP:"$install_dir"/FastC could not have made"$TAIL"\n"
+ exit 1
+fi
+
+
+######################################
+
+dir=`pwd`
+
+
+
+########################################
+cd $dir"/BFCounter"
+
+echo -e "\nworking in "$dir"/BFCounter ...\n"
+
+make && cp -rv ../BFCounter $install_dir"/FastC/."
+
+
+ls -d $install_dir"/FastC/BFCounter" &> /dev/null
+
+var_exit=`echo $?`
+
+if [ $var_exit -ne 0 ];then
+ echo -e "\n" $red""$HEAD"STOP: BFCounter failed:"$TAIL"\n"
+ rm -vr $install_dir"/FastC"
+ exit 2
+fi
+###########################################
+
+
+
+
+
+
+###########################################
+#cd $dir"/libgtextutils-0.7"
+
+#echo -e "\nworking in "$dir"/libgtextutils-0.7 ...\n"
+
+#./configure "--prefix="$install_dir"/FastC/pkg-config" && make && make install
+
+#ls -d $install_dir"/FastC/pkg-config" &> /dev/null
+
+#var_exit=`echo $?`
+
+#if [ $var_exit -ne 0 ];then
+# echo -e "\n" $red""$HEAD"STOP: gtextutils failed:"$TAIL"\n"
+# rm -vr $install_dir"/FastC"
+# exit 2
+#fi
+
+
+
+cd $dir"/fastx_toolkit"
+
+echo -e "\nworking in "$dir"/fastx_toolkit ...\n"
+
+#./configure "--prefix="$install_dir"/FastC" && make && make install
+
+mkdir -pv $install_dir"/FastC/fastx_toolkit"
+
+ls -d $install_dir"/FastC/fastx_toolkit" &> /dev/null
+
+var_exit=`echo $?`
+
+if [ $var_exit -ne 0 ];then
+ echo -e "\n" $red""$HEAD"STOP: fastx_toolkit failed:"$TAIL"\n"
+ rm -vr $install_dir"/FastC"
+ exit 2
+fi
+
+if [ -z `uname -p|grep "64"` ];then
+ rsync -rhavzP --stats "$dir"/fastx_toolkit/32bits/* "$install_dir"/FastC/fastx_toolkit/. 
+else
+ rsync -rhavzP --stats "$dir"/fastx_toolkit/64bits/* "$install_dir"/FastC/fastx_toolkit/.
+fi
+
+
+if [ -s $install_dir"/FastC/fastx_toolkit/fastx_quality_stats" ];then
+    echo -e "fastx_quality_stats\t\tOK"
+ if [ -s $install_dir"/FastC/fastx_toolkit/fastx_nucleotide_distribution_graph.sh" ];then
+     echo -e "fastx_nucleotide_distribution_graph.sh\t\tOK"
+  if [ -s $install_dir"/FastC/fastx_toolkit/fasta_clipping_histogram.pl" ];then
+   echo -e "fasta_clipping_histogram.pl\t\tOK"
+  else
+   echo -e "fasta_clipping_histogram.pl\t\tFAIL"
+   echo -e "\n" $red""$HEAD"STOP: fastx_toolkit failed:"$TAIL"\n"
+   rm -vr $install_dir"/FastC"
+   exit 2
+  fi
+ else
+   echo -e "fastx_nucleotide_distribution_graph.sh\t\tFAIL"
+   echo -e "\n" $red""$HEAD"STOP: fastx_toolkit failed:"$TAIL"\n"
+   rm -vr $install_dir"/FastC"
+   exit 2
+ fi
+else
+   echo -e "fastx_quality_stats\t\tFAIL"
+   echo -e "\n" $red""$HEAD"STOP: fastx_toolkit failed:"$TAIL"\n"
+   rm -vr $install_dir"/FastC"
+   exit 2
+fi
+
+########################################
+
+cd $dir
+
+sed -i '3s,^,FastC_dir='"$install_dir"'\/FastC\n,' FastC
+
+sed -i '3s,^,FastC_dir='"$install_dir"'\/FastC\n,' UNINSTALL
+sed -i '4s,^,FastC_xdir='"$install_xdir"'\n,' UNINSTALL
+
+cp -v UNINSTALL $install_dir"/FastC/."
+cp -v FastC $install_dir"/FastC/."
+cp -rv example $install_dir"/FastC/."
+
+ln "--target-directory="$install_xdir $install_dir"/FastC/FastC"
+
+wait
+
+
+
+
+exit 0

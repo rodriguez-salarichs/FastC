@@ -1,0 +1,454 @@
+#!/bin/bash
+
+
+
+###########################################################################################
+# Define some colors:
+ gray='\e[0;30m'
+ GRAY='\e[47;30m'
+ red='\e[0;31m'
+ RED='\e[47;31m'
+ green='\e[0;32m'
+ GREEN='\e[40;32m'
+ yellow='\e[0;33m'
+ YELLOW='\e[40;33m'
+ blue='\e[0;34m'
+ BLUE='\e[47;34m'
+ magenta='\e[0;35m'
+ MAGENTA='\e[40;35m'
+ cyan='\e[0;36m'
+ CYAN='\e[40;36m'
+ NC='\e[0m'   # No Color
+ HEAD='\033[1m'
+ TAIL='\033[0m'
+
+
+
+###########################################################################################
+
+funct_version () {
+
+echo -e "\nVersion: 0.9 (May 4, 2016)"
+echo -e "\tAuthors: J. Rodriguez-Salarichs, Antonio F. Garayalde"
+echo -e "\t         ----------------------"    
+echo -e "\n\tE-mail: javierr@cib.csic.es\n\n"
+exit 0
+
+}
+
+##################################################################
+
+
+read -d '' String <<"EOF"
+Usage: 
+       ./FastC fasta_file [Options]
+        
+        fasta_file     input file [Format: fasta;fa]
+
+	Options:
+        -------
+	-o	output name [Default: INPUT_NAME+PID]
+	-k	kmers length [Default: 7]
+	-t	Number of threads to use [Default: 1]
+	-h	help
+	-v	version
+	 
+EOF
+####################################################################
+
+
+read -d '' Header <<"EOF"
+
+FastC aims to provide a simple way to do some quality control checks on treated sequence data coming from high throughput sequencing pipelines.
+
+
+
+####################################################################################
+#                                                                                  #
+# If you used FastC in your work, please cite:                                     #                
+#                                                                                  #
+# Rodriguez-Salarichs, J., & Garayalde, A.F. (2016). FastC. Computer program       #
+#               distributed by the author,                                         #
+#               website https://github.com/rodriguez-salarichs/FastC.              #
+#                                                                                  #
+# Melsted, P., & Pritchard, J. K. (2011). Efficient counting of k-mers in DNA      #
+#               sequences using a bloom filter. BMC bioinformatics, 12(1), 1.      #
+#                                                                                  #
+# Gordon, A., & Hannon, G. J. (2010). Fastx-toolkit. Computer program distributed  #
+#               by the author,                                                     #
+#               website http://hannonlab.cshl.edu/fastx_toolkit/index.html.        #
+#                                                                                  #
+####################################################################################
+
+
+EOF
+
+
+#####################################################################
+
+START=$(date +%s.%N)
+
+
+
+
+if [ $# == 0 ]
+then
+ echo -e "\n"$HEAD$RED"ERROR: It needs a fasta input file"$TAIL"\n"
+ echo "${String}"
+ echo ""
+ exit 2
+fi
+
+
+
+dir=`pwd`
+
+if [ ! -r $dir"/"$1 ];then
+ if [ $1 == "-h" ];then
+  echo -e "\n${String}\n"
+  exit 0
+ elif [ $1 == "-v" ];then
+  funct_version
+  exit 0
+ fi
+ echo -e "\n"$HEAD$RED"ERROR: Input file does not exist or is not readable"$TAIL"\n"
+ echo -e "${String}\n"
+ exit 2
+fi
+
+if [ -z `echo $1|grep -E ".fa|.fasta"` ];then
+ echo -e "\n"$HEAD$RED"WARNING: Input file needs to be .fa or .fasta"$TAIL"\n"
+ echo -e "${String}\n"
+ exit 1
+fi
+
+if [ $# -eq 2 -o $# -eq 4 -o $# -eq 6 ];then
+  echo -e "\n"$HEAD$RED"ERROR: Arguments are not supporting"$TAIL"\n"
+ echo -e "${String}\n"
+ exit 2
+fi
+
+cpus=1
+kmer_n=7
+
+if [ $# -eq 7 -o $# -eq 5 -o $# -eq 3 ];then
+ if [ $2 == "-k" ];then 
+  if ! [[ $3 =~ ^[0-9]+$ ]] ;then
+   echo -e "\n"$HEAD$RED"ERROR: kmer length is not integer number"$TAIL"\n"
+   echo -e "${String}\n"
+   exit 2
+  else
+  kmer_n=$3
+  fi
+ elif [ $2 == "-o" ];then
+  name_file=$3
+ elif [ $2 == "-t" ];then
+  if ! [[ $3 =~ ^[0-9]+$ ]] ;then
+   echo -e "\n"$HEAD$RED"ERROR: threads number is not integer number"$TAIL"\n"
+   echo -e "${String}\n"
+   exit 2
+  else
+  cpus=$3
+  fi
+ fi
+fi
+
+
+if [ $# -eq 7 -o $# -eq 5 ];then
+ if [ $4 == "-k" ];then
+  if ! [[ $5 =~ ^[0-9]+$ ]] ;then
+   echo -e "\n"$HEAD$RED"ERROR: kmer length is not integer number"$TAIL"\n"
+   echo -e "${String}\n"
+   exit 2
+  else
+  kmer_n=$5
+  fi
+ elif [ $4 == "-o" ];then
+  name_file=$5
+ elif [ $4 == "-t" ];then
+  if ! [[ $5 =~ ^[0-9]+$ ]] ;then
+   echo -e "\n"$HEAD$RED"ERROR: threads number is not integer number"$TAIL"\n"
+   echo -e "${String}\n"
+   exit 2
+  else
+  cpus=$5
+  fi
+ fi
+fi
+
+
+
+if [ $# -eq 7 ];then
+ if [ $6 == "-k" ];then
+  if ! [[ $7 =~ ^[0-9]+$ ]] ;then
+   echo -e "\n"$HEAD$RED"ERROR: kmer length is not integer number"$TAIL"\n"
+   echo -e "${String}\n"
+   exit 2
+  else
+  kmer_n=$7
+  fi
+ elif [ $6 == "-o" ];then
+  name_file=$7
+ elif [ $6 == "-t" ];then
+  if ! [[ $7 =~ ^[0-9]+$ ]] ;then
+   echo -e "\n"$HEAD$RED"ERROR: threads number is not integer number"$TAIL"\n"
+   echo -e "${String}\n"
+   exit 2
+  else
+  cpus=$7
+  fi
+ fi
+fi
+
+
+ if [ -z `echo $1|grep ".fasta"` ];then
+  name_in=`echo $1|awk '{sub(".fa","",$0); print $0}'`
+ else
+  name_in=`echo $1|awk '{sub(".fasta","",$0); print $0}'`
+ fi
+
+if [ -z $name_file ];then
+ name_file=$name_in"_"$$
+fi
+
+(
+
+echo -e "\n${Header}\n" 
+
+date
+
+
+echo -e "\nRunning Fastx toolkit ...\n"
+
+"$FastC_dir"/fastx_toolkit/fastx_quality_stats -i $1 -o $name_file"fqs.txt"
+
+"$FastC_dir"/fastx_toolkit/fastx_nucleotide_distribution_graph.sh -i $name_file"fqs.txt" -t $name_in -o $name_file"_nd.png"
+
+"$FastC_dir"/fastx_toolkit/fasta_clipping_histogram.pl $1  $name_file"_sld.png"
+
+
+echo -e "\nRunning BFCounter ...\n"
+
+"$FastC_dir"/BFCounter/BFCounter count -k $kmer_n -n 1000000000 -o $name_file"_kmers.bin" -t $cpus --verbose $1
+
+"$FastC_dir"/BFCounter/BFCounter dump -k $kmer_n -i $name_file"_kmers.bin" -o $name_file"_kmers.txt"
+
+echo "seq count" > $name_file"_kmers-Top10.txt"
+cat $name_file"_kmers.txt"|sort -nrk 2|head -n 10 >> $name_file"_kmers-Top10.txt"
+
+TITLE=$name_in                                  # default title is empty
+FILENAME=$name_file"_kmers-Top10.txt"
+OUTPUTTERM="set term png size 1048,768"         # default output terminal is "PNG"
+OUTPUTFILE=$name_file"_kmers-Top10.png"          # Default output file is simply "stdout"
+
+GNUPLOTCMD="
+$OUTPUTTERM
+set boxwidth 0.5 absolute
+set size 1,1
+set style fill solid 1.00 border -1
+#set xlabel \"sequence\"
+set title \"Top 10 Kmer content of $TITLE\" 
+set ylabel \"Count\" 
+#set grid noxtics nomxtics ytics nomytics noztics nomztics \
+# nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+#set grid layerdefault   linetype 0 linewidth 1.000,  linetype 0 linewidth 1.000
+set key outside right top vertical Left reverse enhanced autotitles columnhead nobox
+set key invert samplen 2 spacing 1 width 0 height 0 
+set style histogram rowstacked 
+set style data histograms 
+set noytics
+set xtics 1
+set xtics rotate by -45
+set bmargin 8
+set ytics 1000 nomirror
+
+plot '$FILENAME' using (column(2)):xtic(1) title \"Kmer Count\" lt rgb \"#5050ff\"
+set yrange [0:GPVAL_DATA_Y_MAX] noreverse nowriteback
+replot
+"
+echo "$GNUPLOTCMD" | gnuplot > "$OUTPUTFILE"
+
+rm $name_file"_kmers-Top10.txt"
+
+avgGC=`awk 'NR>1 {sum+=(($14+$15)/$18)} END {print 100.*sum/(NR-1)}' $name_file"fqs.txt"`
+varGC=`awk -v mean=$avgGC 'NR>1 {sum2+=(((100*($14+$15)/$18)-mean)^2)} END {print sum2/(NR-1)}' $name_file"fqs.txt"`
+
+avg1=`echo "$avgGC"|bc -l|awk '{printf "%.0f\n",$0}'`
+LT=`wc -L $1|awk '{print $1}'`;
+
+NT=`echo "1000/$cpus"|bc -l|awk '{printf "%.0f\n",$0}'`
+echo "seq random">"random_"$$".txt"
+icpu=1
+while [ $icpu -le $cpus ];do
+(i=0;while [ $i -le $NT ];do j=0;while [ $j -le $LT ];do N=`echo "$((RANDOM % 100))"`;if [ $N -lt $avg1 ];then a[$i,$j]=1;elif [ $N -ge $avg1  ];then a[$i,$j]=0;fi;let j=j+1;done;printf '%s\n' "${a[*]}";let i=i+1;done >> "random_seq_"$$".bin") &
+let icpu=icpu+1
+done
+
+while [ `wc -l "random_seq_"$$".bin"|awk '{print $1}'` -lt 1000  ];do
+ echo " " > /dev/null
+done
+
+awk '{i=1;while(i<=NF) {sum[i]=sum[i]+$i;i++}} END {i=1;while(i<=NF) {print i" "sum[i]/10;i++}}' "random_seq_"$$".bin" >> "random_"$$".txt"
+
+
+TITLE=$name_in                                  # default title is empty
+FILENAME=$name_file"fqs.txt"
+FILENAME_RAND="random_"$$".txt"
+OUTPUTTERM="set term png size 1048,768"         # default output terminal is "PNG"
+OUTPUTFILE=$name_file"_GC.png"
+GNUPLOTCMD="
+$OUTPUTTERM
+#set boxwidth 0.75 absolute
+set size 1,1
+set style fill solid 1.00 border -1
+set xlabel \"read position\"
+set title \"GC content by read position ($TITLE)\" 
+set ylabel \"%GC\" 
+#set grid noxtics nomxtics ytics nomytics noztics nomztics \
+# nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+#set grid layerdefault   linetype 0 linewidth 1.000,  linetype 0 linewidth 1.000
+set key outside right top vertical Left reverse enhanced autotitles columnhead nobox
+set key invert samplen 4 spacing 1 width 0 height 0 
+#set style histogram rowstacked 
+#set style data histograms 
+#set noytics
+set ytics 2 nomirror
+set xtics 4 nomirror
+set yrange [:] noreverse nowriteback
+set bmargin 4
+set samples 300
+
+plot '$FILENAME' using (100.*(column(14)+column(15))/column(18)) smooth csplines title \"%GC\" with lines \
+                 lt rgb \"#ff6666\" lw 1, $avgGC title \"Average ($avgGC)\" with lines lt rgb \"#7edd9c\" lw 2, \
+     '$FILENAME_RAND' using 1:2 smooth csplines title \"%GC random distribution\" with lines lt rgb \"#3e37f4\" lw 1
+
+"
+
+echo "$GNUPLOTCMD" | gnuplot > "$OUTPUTFILE"
+
+rm "random_"$$".txt" "random_seq_"$$".bin"
+
+echo "GC Count" > histogram.txt
+awk 'NR>1 {printf "%.0f\n",(100.*($14+$15)/$18)}' $name_file"fqs.txt"|sort -n|uniq -c|awk '{printf "%.1f %.1f\n",$2,$1}' >> histogram.txt
+
+minX=`awk 'NR==2 {print $1}' histogram.txt`
+T=`wc -l histogram.txt |awk '{print $1}'`
+maxX=`awk -v max=$T 'NR==max {print $1}' histogram.txt`
+
+minX=`echo "$minX-5"|bc -l`
+maxX=`echo "$maxX+5"|bc -l`
+
+sed -i '2s/^/'"$minX 0"'\n/g' histogram.txt
+echo "$maxX 0" >> histogram.txt 
+
+maxGauss=`sort -nk 2 histogram.txt|tail -n 1|awk '{print $2}'`
+
+
+TITLE=$name_in                                  # default title is empty
+FILENAME=histogram.txt
+OUTPUTTERM="set term png size 1048,768"         # default output terminal is "PNG"
+OUTPUTFILE=$name_file"_GC_all.png"
+GNUPLOTCMD="
+$OUTPUTTERM
+#set boxwidth 0.75 absolute
+set size 1,1
+set style fill solid 1.00 border -1
+set xlabel \"GC content (%)\"
+set title \"GC distribution over all sequences ($TITLE)\" 
+#set ylabel \"%GC\" 
+#set grid noxtics nomxtics ytics nomytics noztics nomztics \
+# nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+#set grid layerdefault   linetype 0 linewidth 1.000,  linetype 0 linewidth 1.000
+set key inside right top vertical Left reverse enhanced autotitles columnhead nobox
+set key invert samplen 2 spacing 1 width 0 height 0 
+#set style histogram rowstacked 
+#set style data histograms 
+#set noytics
+set ytics 5 nomirror
+set xtics 5 nomirror
+set xrange [0:100]
+set bmargin 4
+set samples 300
+PI=3.14; s=$varGC; m=$avgGC; a=$maxGauss;
+# gauss(x) = (a/((2*PI*s)**0.5))*exp(-(x-m)**2/(2*s))
+gauss(x) = a*exp(-(x-m)**2/(2*s))
+
+
+plot '$FILENAME' using 1:2 title \"GC count per read\" with lines lt rgb \"#ff6666\" lw 1, \
+      gauss(x) smooth csplines title \"Theoretical Distribution\" with lines lt rgb \"#3e37f4\" lw 1
+set yrange [0:GPVAL_DATA_Y_MAX] noreverse nowriteback
+
+"
+
+echo "$GNUPLOTCMD" | gnuplot > "$OUTPUTFILE"
+
+
+rm histogram.txt
+
+echo "Percent DL" > $name_file"DL.txt"
+
+awk 'NR%2==0 {print $0}' $1 |sort |uniq -c|sort -n |awk '{print $1}' |uniq -c|awk '{a[NR]=$2;sum+=(b[NR]=$1)} END {while(++i<=NR)print a[i]" "100.*b[i]/sum}'|awk '{if($1 < 10) {j=j+1;x[j]=$1;y[j]=$2;}else if ($1 >= 10 && $1 < 50) {x[j+1]=">10";y[j+1]=y[j+1]+$2;}else if ($1 >= 50 && $1 < 100) {x[j+2]=">50";y[j+2]=y[j+2]+$2;}else if ($1 >= 100 && $1 < 500) {x[j+3]=">100";y[j+3]=y[j+3]+$2;}else if ($1 >= 500 && $1 < 1000) {x[j+1]=">500";y[j+4]=y[j+4]+$2;}else if ($1 >= 1000 && $1 < 5000) {x[j+5]=">1k";y[j+5]=y[j+5]+$2;}else if ($1 >= 5000 && $1 < 10000) {x[j+6]=">5k";y[j+6]=y[j+6]+$2;}else if ($1 >= 10000) {x[j+7]=">10k";y[j+7]=y[j+7]+$2} } END {i=1;while(i<=j+7) {print x[i]" "y[i];i++}}' >> $name_file"DL.txt"
+
+
+
+TITLE=$name_in                                  # default title is empty
+FILENAME=$name_file"DL.txt"
+OUTPUTTERM="set term png size 1048,768"         # default output terminal is "PNG"
+OUTPUTFILE=$name_file"_DL.png"
+GNUPLOTCMD="
+$OUTPUTTERM
+#set boxwidth 0.75 absolute
+set size 1,1
+set style fill solid 1.00 border -1
+set xlabel \"Duplication levels\"
+set title \"Sequence Duplication levels of ($TITLE)\" 
+set ylabel \"Percent of duplication (%)\" 
+#set grid noxtics nomxtics ytics nomytics noztics nomztics \
+# nox2tics nomx2tics noy2tics nomy2tics nocbtics nomcbtics
+#set grid layerdefault   linetype 0 linewidth 1.000,  linetype 0 linewidth 1.000
+set key inside right top vertical Left reverse enhanced autotitles columnhead nobox
+set key invert samplen 2 spacing 1 width 0 height 0 
+#set style histogram rowstacked 
+#set style data histograms 
+#set noytics
+set ytics 10 nomirror
+set xtics 1 nomirror
+set yrange [0:100] noreverse nowriteback
+set bmargin 4
+
+plot '$FILENAME' using (column(2)):xtic(1) with lines lt rgb \"#ff6666\" lw 2
+
+
+"
+
+echo "$GNUPLOTCMD" | gnuplot > "$OUTPUTFILE"
+
+
+
+
+
+
+
+convert $name_file"_sld.png" $name_file"_nd.png" $name_file"_GC.png" $name_file"_GC_all.png" $name_file"_DL.png" $name_file"_kmers-Top10.png" $name_file".pdf"
+
+mkdir -p images
+
+mv *.png images/.
+
+END=$(date +%s.%N)
+
+DIFF=$(echo "$END - $START" | bc)
+
+echo " "
+
+date 
+
+echo $DIFF|awk '{printf "%11s %.4f\n","Final time:",$0 }'
+
+
+) &>> $name_file".out" 
+
+
+ 
+
+exit 0
